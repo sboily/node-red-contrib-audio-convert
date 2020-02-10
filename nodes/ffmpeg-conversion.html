@@ -40,6 +40,10 @@
         <label for="node-input-audiobitrate"><i class="fa fa-play"></i> Audio Bitrate</label>
         <input type="text" id="node-input-audiobitrate" style="width:70%;">
     </div>
+    <div class="form-row">
+        <label for="node-input-audiocodec"><i class="fa fa-play"></i> Audio Codec</label>
+        <input type="text" id="node-input-audiocodec" style="width:70%;">
+    </div>
 
 </script>
 
@@ -90,7 +94,8 @@
                 format: {value: 'wav'},
                 audiochannels: {value: 'mono'},
                 audiofrequency: {value: '8000'},
-                audiobitrate: {value: '8'},
+                audiobitrate: {value: '64k'},
+                audiocodec: {value: 'pcm_u8'},
             },
             color: 'rgb(245, 245, 245)',
             inputs: 1,

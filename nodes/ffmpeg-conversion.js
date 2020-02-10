@@ -35,6 +35,7 @@ module.exports = function (RED) {
     RED.nodes.createNode(this, config);
     this.audiobitrate = config.audiobitrate;
     this.audiofrequency = config.audiofrequency;
+    this.audiocodec = config.audiocodec;
     var node = this;
 
     this.on('input', function (msg) {
@@ -136,6 +137,10 @@ module.exports = function (RED) {
           var numChannels = 1;
           var frequency = 22050;
           var bitrate = 16;
+          var codec;
+          if (node.audiocodec) {
+            codec = node.audiocodec;
+          }
           if (node.audiofrequency) {
             frequency = node.audiofrequency;
           }
@@ -167,6 +172,7 @@ module.exports = function (RED) {
               .audioChannels(numChannels)
               .audioFrequency(frequency)
               .audioBitrate(bitrate)
+              .withAudioCodec(codec)
               .on('start', conversionStart)
               .on('error', conversionError)
               .on('end', conversionEnd)
