@@ -1,5 +1,6 @@
 /**
  * Copyright 2013,2015 IBM Corp.
+ * Copyright 2020 Sylvain Boily
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +24,8 @@ module.exports = function (RED) {
   var temp = require('temp').track();
   var fs = require('fs');
   var path = require('path');
+  var waveHeader = require('./lib/wave-header.js');
+
 
   // Utility function to perform a URL validation check. Copied from speech_to_text.
   function urlCheck(str) {
@@ -96,6 +99,7 @@ module.exports = function (RED) {
 
       // Generate buffer that is sent out of node on msg.buffer
       var readFileToBuffer = function(path, cb) {
+        var stats = fs.statSync(path);
         var readableStream  = fs.createReadStream(path);
 
         toArray(readableStream).then(function (parts) {
@@ -103,11 +107,17 @@ module.exports = function (RED) {
 
           for (var i = 0; i < parts.length; ++i) {
             var part = parts[i];
+            if (i < 1) {
+              var header = waveHeader.readHeader(part);
+              var newHeaderBuffer = waveHeader.generateHeader(stats.size, header);
+              part = waveHeader.rewriteHeaderInBufferChunk(newHeaderBuffer, part);
+            }
             buffers.push((part instanceof Buffer) ? part : new Buffer(part));
           }
 
           cb(Buffer.concat(buffers));
         });
+
       };
 
       // Performs the ffmpeg call to convert input into output format
@@ -133,20 +143,15 @@ module.exports = function (RED) {
             readFileToBuffer(info.path, nodeSend);
           };
 
-
           var numChannels = 1;
           var frequency = 22050;
-          var bitrate = 16;
+          var bitrate;
           var codec;
-          if (node.audiocodec) {
-            codec = node.audiocodec;
-          }
-          if (node.audiofrequency) {
-            frequency = node.audiofrequency;
-          }
-          if (node.audiobitrate) {
-            bitrate = node.audiobitrate;
-          }
+
+          if (node.audiocodec) { codec = node.audiocodec; }
+          if (node.audiofrequency) { frequency = node.audiofrequency; }
+          if (node.audiobitrate) { bitrate = node.audiobitrate; }
+
           if (config.audiochannels && config.audiochannels == 'stereo') {
             numChannels = 2;
             frequency = 48000;
@@ -156,7 +161,7 @@ module.exports = function (RED) {
             readFileToBuffer(pathToFile, nodeSend);
           } else {
             var stream  = fs.createWriteStream(info.path);
-            ffmpeg(pathToFile)
+            var cmd = ffmpeg(pathToFile)
               .format(config.format)
               // Take out the no video option as that defeats the purpose.
               //.noVideo()
@@ -171,13 +176,14 @@ module.exports = function (RED) {
               //
               .audioChannels(numChannels)
               .audioFrequency(frequency)
-              .audioBitrate(bitrate)
-              .withAudioCodec(codec)
               .on('start', conversionStart)
               .on('error', conversionError)
               .on('end', conversionEnd)
-              .output(stream)
-              .run();
+              .output(stream);
+
+            if (bitrate) {  cmd.audioBitrate(bitrate); }
+            if (codec) { cmd.audioCodec(codec); }
+            cmd.run();
           }
         });
       }
